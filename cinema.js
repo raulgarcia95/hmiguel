@@ -3,7 +3,7 @@
  'use strict';
  const cache=new Map(),root='assets/cinema/';
  const names=['tv','watch','face','changing','entrance','beer','meeting','street','fallen','globe'];
- function get(name){const src=root+'intro-'+name+'.webp';if(!cache.has(src)){const im=new Image();im.src=src+'?v=20261014-4';cache.set(src,im);}return cache.get(src);}
+ function get(name){const src=root+'intro-'+name+'.webp';if(!cache.has(src)){const im=new Image();im.src=src+'?v=20261014-5';cache.set(src,im);}return cache.get(src);}
  ['final-letter','rope-wall','rope','final-sofa','final-angry','final-shout'].forEach(get);names.forEach(get);for(let i=0;i<6;i++)get('program-'+i);for(let i=0;i<4;i++){get('actor-'+i);get('final-'+i);get('police-'+i);}
  for(const name of ['calippo','guacamo','lavabo'])for(let i=0;i<4;i++)get(name+'-'+i);
  ['juke','bomba','sarria'].forEach(get);

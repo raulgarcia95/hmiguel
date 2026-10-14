@@ -18,7 +18,7 @@ function heroSprite(sequence,idle,moving){
  return sprite;
 }
 function hideEntryForIntro(){fadeLayer.style.opacity='1';document.body.classList.toggle('cinema-active',true);$('welcome').hidden=true;}
-function image(src){if(!images.has(src)){const im=new Image();im.src=src+(src.includes('?')?'&':'?')+'v=20261014-4';images.set(src,im);}return images.get(src);}
+function image(src){if(!images.has(src)){const im=new Image();im.src=src+(src.includes('?')?'&':'?')+'v=20261014-5';images.set(src,im);}return images.get(src);}
 function paint(src,x,y,w,h){const im=image(src);if(im.complete&&im.naturalWidth)ctx.drawImage(im,x,y,w,h);}
 function notice(text){$('notice').textContent=text;}
 const labels={1:'Marica’s · La carta',2:'La primera prueba',3:'Sabadell',4:'Ferretería',5:'El poste',6:'La caja de cables',7:'Fin de partida',8:'Mapa de Cataluña',9:'Entrada a Port Aventura',10:'Port Aventura',11:'La entrada',12:'Fin de partida',13:'Los grandes almacenes',14:'Dentro de Marica’s',15:'La máquina de discos',16:'Fin de partida',17:'La ciudad',18:'La playa',19:'Pamela en la playa',20:'Fin de partida',21:'El restaurante',22:'La orilla',23:'El lavabo',25:'Fin de partida',26:'La taquilla',27:'La tienda de música',28:'La tienda de deportes',30:'El Prat',31:'Tarragona',32:'Fin de partida',33:'Fin de partida',34:'El bar',35:'Barcelona'};
@@ -29,8 +29,19 @@ function inventory(){
  $('hand').classList.toggle('selected',!game.state.selected);$('look').classList.toggle('selected',game.state.selected===4);
 }
 function select(id){game.state.selected=id;inventory();}
+function interactiveAt(x,y){const entrance=game.entranceAt(x,y);return entrance?{...entrance,isEntrance:true}:game.hotspot(x,y);}
+function drawMapEntrances(){
+ ctx.save();ctx.font='bold 20px Arial';ctx.textAlign='center';ctx.textBaseline='middle';
+ for(const e of game.mapEntrances()){
+  const x=e.x*5,y=e.y*5,w=e.w*5;
+  ctx.strokeStyle='#e9cc88';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(e.anchorX*5,e.anchorY*5);ctx.lineTo(x,y);ctx.stroke();
+  if(e.pole){const px=e.anchorX*5,py=e.anchorY*5;ctx.strokeStyle='#24180e';ctx.lineWidth=10;ctx.beginPath();ctx.moveTo(px,py);ctx.lineTo(px,py-95);ctx.stroke();ctx.strokeStyle='#bd854a';ctx.lineWidth=5;ctx.stroke();ctx.lineWidth=7;ctx.beginPath();ctx.moveTo(px-24,py-73);ctx.lineTo(px+24,py-73);ctx.stroke();ctx.fillStyle='#dce6ed';ctx.fillRect(px-24,py-85,10,15);ctx.fillRect(px+14,py-85,10,15);}
+  ctx.fillStyle='#201b16ee';ctx.fillRect(x-w/2,y-25,w,50);ctx.strokeStyle=e.pole?'#ffdb64':'#bda77b';ctx.lineWidth=e.pole?3:1;ctx.strokeRect(x-w/2,y-25,w,50);ctx.fillStyle='#fff1c8';ctx.fillText(e.name,x,y,w-12);
+ }
+ ctx.restore();
+}
 let pointerPosition=null,lastCursor='';
-function updateCursor(now){let cursor='default';if(pointerPosition&&started&&!game.busy&&!conversation&&!cinematic){const p=pointerPosition,o=game.hotspot(p.x,p.y);cursor=o?(game.state.selected===4?'url("assets/cursors/eye.webp") 24 24, help':'pointer'):Adventure.valid(game.masks[game.state.room],p.x,p.y)?`url("assets/cursors/walk-${Math.floor(now/150)%4}.webp") 24 47, crosshair`:'not-allowed';}if(cursor!==lastCursor){canvas.style.cursor=cursor;lastCursor=cursor;}}
+function updateCursor(now){let cursor='default';if(pointerPosition&&started&&!game.busy&&!conversation&&!cinematic){const p=pointerPosition,o=interactiveAt(p.x,p.y);cursor=o?(game.state.selected===4?'url("assets/cursors/eye.webp") 24 24, help':'pointer'):Adventure.valid(game.masks[game.state.room],p.x,p.y)?`url("assets/cursors/walk-${Math.floor(now/150)%4}.webp") 24 47, crosshair`:'not-allowed';}if(cursor!==lastCursor){canvas.style.cursor=cursor;lastCursor=cursor;}}
 function showText(text){return new Promise(resolve=>{const box=$('subtitle');box.querySelector('span').textContent=text;box.hidden=false;const timer=setTimeout(finish,Math.max(2200,Math.min(9000,text.length*50)));function finish(){clearTimeout(timer);box.hidden=true;textFinish=null;resolve();}textFinish=finish;box.querySelector('button').onclick=finish;});}
 function talk(id,phrase){
  const dialog=data.conversations[id];if(!dialog){notice('Esta conversación no está disponible en los archivos originales.');return Promise.resolve();}
@@ -94,6 +105,7 @@ function render(now){
    if(sprite)paint(sprite.image,game.state.x*5-(sprite.anchorX??sprite.w/2)*5,game.state.y*5-(sprite.anchorY??sprite.h)*5,sprite.w*5,sprite.h*5);
   }
   graphics.filter(g=>g.flag===2).forEach(drawGraphic);
+  drawMapEntrances();
   if(showMask)paint('assets/mask-'+game.state.room+'.webp',0,0,1600,1000);
   if(showHotspots){ctx.lineWidth=2;ctx.font='16px system-ui';for(const o of Object.values(game.state.objects)){if(o.room!==game.state.room||game.state.inventory.includes(o.id))continue;ctx.strokeStyle='#f4d389';ctx.strokeRect(o.x*5,o.y*5,o.w*5,o.h*5);ctx.fillStyle='#fff';ctx.fillText(o.name,o.x*5,o.y*5-5);}}
  }
@@ -101,9 +113,9 @@ function render(now){
  requestAnimationFrame(render);
 }
 function point(event){const r=canvas.getBoundingClientRect();return {x:(event.clientX-r.left)/r.width*320,y:(event.clientY-r.top)/r.height*200};}
-canvas.addEventListener('pointermove',event=>{pointerPosition=point(event);if(!started||game.busy||conversation)return;const p=pointerPosition,o=game.hotspot(p.x,p.y),hover=$('hover');if(!o){hover.style.display='none';return;}hover.textContent=(game.state.selected?(game.state.selected===4?'Mirar ':`Usar ${game.state.objects[game.state.selected]?.name||''} con `):'')+o.name;hover.style.display='block';const r=canvas.getBoundingClientRect();hover.style.left=Math.min(event.clientX-r.left+12,r.width-180)+'px';hover.style.top=Math.max(0,event.clientY-r.top-36)+'px';});
+canvas.addEventListener('pointermove',event=>{pointerPosition=point(event);if(!started||game.busy||conversation)return;const p=pointerPosition,o=interactiveAt(p.x,p.y),hover=$('hover');if(!o){hover.style.display='none';return;}hover.textContent=o.isEntrance?(game.state.selected===4?'Mirar ':'Ir a ')+o.name:(game.state.selected?(game.state.selected===4?'Mirar ':`Usar ${game.state.objects[game.state.selected]?.name||''} con `):'')+o.name;hover.style.display='block';const r=canvas.getBoundingClientRect();hover.style.left=Math.min(event.clientX-r.left+12,r.width-180)+'px';hover.style.top=Math.max(0,event.clientY-r.top-36)+'px';});
 canvas.addEventListener('pointerleave',()=>{pointerPosition=null;$('hover').style.display='none';});
-canvas.addEventListener('click',event=>{if(!started||game.busy||conversation)return;const p=point(event),o=game.hotspot(p.x,p.y);$('hover').style.display='none';if(o)game.interact(o.id).catch(console.error);else game.move(p.x,p.y);});
+canvas.addEventListener('click',event=>{if(!started||game.busy||conversation)return;const p=point(event),o=interactiveAt(p.x,p.y);$('hover').style.display='none';if(o?.isEntrance){if(game.state.selected===4)showText(o.name);else{select(0);game.walkToEntrance(o);}}else if(o)game.interact(o.id).catch(console.error);else game.move(p.x,p.y);});
 canvas.addEventListener('contextmenu',event=>{event.preventDefault();select(game.state.selected?0:4);});
 $('start').onclick=async()=>{started=false;hideEntryForIntro();await game.start();started=true;inventory();notice('Haz clic para explorar. La carta está junto a Miguel.');canvas.focus();};
 $('hand').onclick=()=>select(0);$('look').onclick=()=>select(4);

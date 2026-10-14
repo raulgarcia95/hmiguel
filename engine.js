@@ -48,7 +48,7 @@
   class Game {
     constructor(data, hooks = {}) {
       this.data = data; this.hooks = hooks; this.masks = {};
-      for (const [id, room] of Object.entries(data.rooms)) this.masks[id] = Uint8Array.from(atob(room.mask), c => c.charCodeAt(0));
+      for (const [id, room] of Object.entries(data.rooms)) this.masks[id] = Uint8Array.from(atob(room.navigationMask||room.mask), c => c.charCodeAt(0));
       this.reset();
     }
     reset() { this.state = { version: 1, room: 1, x: 40, y: 180, variables: Array(256).fill(0), inventory: [], selected: 0, objects: clone(this.data.objects), graphics: clone(this.data.graphics), animation: 'hombre.sca', visible: true, direction: 3 }; this.path = []; this.busy = false; this.epoch = (this.epoch || 0) + 1; this.warned = new Set(); }
@@ -67,6 +67,28 @@
     }
     async start() { this.reset(); this.retryState=null; this.hooks.ending?.(false); await this.enter(this.data.initial.room, this.data.initial.x, this.data.initial.y); }
     hotspot(x, y) { return Object.values(this.state.objects).filter(o => o.room === this.state.room && !this.state.inventory.includes(o.id) && x >= o.x && x < o.x + o.w && y >= o.y && y < o.y + o.h).sort((a,b) => a.w*a.h-b.w*b.h)[0]; }
+    mapEntrances() { return this.data.mapEntrances?.[this.state.room]||[]; }
+    entranceAt(x,y) {
+      const entries=this.mapEntrances();
+      return entries.find(e=>Math.abs(x-e.x)<=e.w/2+2&&Math.abs(y-e.y)<=e.h/2+2)||entries.find(e=>x>=e.hit.x&&x<=e.hit.x+e.hit.w&&y>=e.hit.y&&y<=e.hit.y+e.hit.h);
+    }
+    walkToEntrance(entry) {
+      if(this.busy||this.state.completed||this.isGameOver())return false;
+      const mask=this.masks[this.state.room],safe=mask.slice();
+      const hasActiveExit=nodes=>nodes.some(n=>n.op==='MI'||(n.body&&(!['IV','IT','IN','IO'].includes(n.op)||this.condition(n,null))&&hasActiveExit(n.body)));
+      const blocked=new Set(this.room().commands.filter(n=>n.op==='IP'&&n.args[0]!==entry.region&&hasActiveExit(n.body||[])).map(n=>n.args[0]));
+      for(let i=0;i<safe.length;i++)if(blocked.has(safe[i]))safe[i]=0;
+      const start=Math.round(this.state.y)*W+Math.round(this.state.x);safe[start]=mask[start];
+      const reachable=new Uint8Array(W*H),queue=new Int32Array(W*H);let head=0,tail=1;queue[0]=start;reachable[start]=1;
+      while(head<tail){const i=queue[head++],x=i%W,y=Math.floor(i/W);for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){const nx=x+dx,ny=y+dy,j=ny*W+nx;if(valid(safe,nx,ny)&&!reachable[j]){reachable[j]=1;queue[tail++]=j;}}}
+      const candidates=[];for(let i=0;i<mask.length;i++)if(mask[i]===entry.region&&reachable[i])candidates.push({x:i%W,y:Math.floor(i/W)});
+      candidates.sort((a,b)=>Math.hypot(a.x-this.state.x,a.y-this.state.y)-Math.hypot(b.x-this.state.x,b.y-this.state.y));
+      for(const target of candidates){
+        const route=findPath(safe,this.state,target),end=route.at(-1);
+        if(end&&mask[end.y*W+end.x]===entry.region){this.checkpoint();this.path=route.slice(1);this.hooks.notice?.('Yendo a '+entry.name+'…');return true;}
+      }
+      this.hooks.notice?.(this.state.room===10&&!this.state.variables[17]?'Para llegar por el agua necesitas aprender a nadar.':'No encuentro un camino desde aquí.');return false;
+    }
     move(x, y) { if (this.busy || this.isGameOver() || this.state.completed || !this.state.visible) return; this.checkpoint(); this.path = findPath(this.masks[this.state.room], this.state, { x, y }).slice(1); }
     step(seconds) {
       if (this.busy || !this.path.length) return false;
