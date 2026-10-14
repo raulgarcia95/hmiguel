@@ -18,7 +18,7 @@ function heroSprite(sequence,idle,moving){
  return sprite;
 }
 function hideEntryForIntro(){fadeLayer.style.opacity='1';document.body.classList.toggle('cinema-active',true);$('welcome').hidden=true;}
-function image(src){if(!images.has(src)){const im=new Image();im.src=src+(src.includes('?')?'&':'?')+'v=20261014-6';images.set(src,im);}return images.get(src);}
+function image(src){if(!images.has(src)){const im=new Image();im.src=src+(src.includes('?')?'&':'?')+'v=20261014-7';images.set(src,im);}return images.get(src);}
 function paint(src,x,y,w,h){const im=image(src);if(im.complete&&im.naturalWidth)ctx.drawImage(im,x,y,w,h);}
 function notice(text){$('notice').textContent=text;}
 const labels={1:'Marica’s · La carta',2:'La primera prueba',3:'Sabadell',4:'Ferretería',5:'El poste',6:'La caja de cables',7:'Fin de partida',8:'Mapa de Cataluña',9:'Entrada a Port Aventura',10:'Port Aventura',11:'La entrada',12:'Fin de partida',13:'Los grandes almacenes',14:'Dentro de Marica’s',15:'La máquina de discos',16:'Fin de partida',17:'La ciudad',18:'La playa',19:'Pamela en la playa',20:'Fin de partida',21:'El restaurante',22:'La orilla',23:'El lavabo',25:'Fin de partida',26:'La taquilla',27:'La tienda de música',28:'La tienda de deportes',30:'El Prat',31:'Tarragona',32:'Fin de partida',33:'Fin de partida',34:'El bar',35:'Barcelona'};
