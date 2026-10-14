@@ -8,7 +8,7 @@ const cinemaBar=document.createElement('div');cinemaBar.id='cinema-bar';cinemaBa
 const cinemaSeek=document.createElement('input');cinemaSeek.type='range';cinemaSeek.min='0';cinemaSeek.max='1000';cinemaSeek.value='0';cinemaSeek.setAttribute('aria-label','Avance de la secuencia');cinemaBar.insertBefore(cinemaSeek,$('skip-cinema'));cinemaSeek.oninput=()=>{if(cinematic)cinematic.begin=(cinematic.pausedAt??performance.now())-Number(cinemaSeek.value)/1000*cinematic.entry.duration;};
 const pauseCinema=document.createElement('button');pauseCinema.textContent='Pausar';cinemaBar.insertBefore(pauseCinema,$('skip-cinema'));pauseCinema.onclick=()=>{if(!cinematic)return;if(cinematic.pausedAt!==undefined){cinematic.begin+=performance.now()-cinematic.pausedAt;delete cinematic.pausedAt;pauseCinema.textContent='Pausar';}else{cinematic.pausedAt=performance.now();pauseCinema.textContent='Reanudar';}};
 const images=new Map();let started=false,conversation=null,textFinish=null,last=performance.now(),lastTick=0,lastRegion=-1,showMask=false,showHotspots=false,frameClock=0;
-function image(src){if(!images.has(src)){const im=new Image();im.src=src+(src.includes('?')?'&':'?')+'v=20261014-1';images.set(src,im);}return images.get(src);}
+function image(src){if(!images.has(src)){const im=new Image();im.src=src+(src.includes('?')?'&':'?')+'v=20261014-2';images.set(src,im);}return images.get(src);}
 function paint(src,x,y,w,h){const im=image(src);if(im.complete&&im.naturalWidth)ctx.drawImage(im,x,y,w,h);}
 function notice(text){$('notice').textContent=text;}
 const labels={1:'Marica’s · La carta',2:'La primera prueba',3:'Sabadell',4:'Ferretería',5:'El poste',6:'La caja de cables',7:'Fin de partida',8:'Mapa de Cataluña',9:'Entrada a Port Aventura',10:'Port Aventura',11:'La entrada',12:'Fin de partida',13:'Los grandes almacenes',14:'Dentro de Marica’s',15:'La máquina de discos',16:'Fin de partida',17:'La ciudad',18:'La playa',19:'Pamela en la playa',20:'Fin de partida',21:'El restaurante',22:'La orilla',23:'El lavabo',25:'Fin de partida',26:'La taquilla',27:'La tienda de música',28:'La tienda de deportes',30:'El Prat',31:'Tarragona',32:'Fin de partida',33:'Fin de partida',34:'El bar',35:'Barcelona'};
@@ -43,6 +43,7 @@ async function playMedia(type,file){
  if(type!=='animation')return;
  const entry=window.MEDIA_DATA?.animations?.[key];if(!entry){mediaPending.add(key);notice('Secuencia no disponible: '+file);return;}
  await fadeTo(1);
+ await window.prepareRemasteredCinema?.(key);
  await new Promise(resolve=>{
   const begin=performance.now();cinematic={key,entry,begin,end:async()=>{if(cinematic?.ending)return;cinematic.ending=true;await fadeTo(1);cinematic=null;cinemaBar.hidden=true;$('subtitle').hidden=true;window.clearCinemaCaption?.();resolve();}};
   cinemaBar.hidden=false;$('cinema-title').textContent=key==='WMS.FLI'?'World Media Software':key==='PRESENT.FLI'?'La historia de Menchu y Miguel':file;
@@ -51,18 +52,22 @@ async function playMedia(type,file){
   $('skip-cinema').onclick=()=>cinematic?.end();image(entry.image+'?play='+Math.round(begin));cinematic.source=entry.image+'?play='+Math.round(begin);
    fadeTo(0);
    });
-  if(key==='PRESENT.FLI')await new Promise(resolve=>{image('assets/portada.webp');cinematic={key:'PORTADA',entry:{duration:10000},begin:performance.now(),end:async()=>{if(cinematic?.ending)return;cinematic.ending=true;await fadeTo(1);cinematic=null;resolve();}};fadeTo(0);});
+  if(key==='PRESENT.FLI'){const cover=image('assets/portada.webp');if(cover.decode)await cover.decode().catch(()=>{});await new Promise(resolve=>{cinematic={key:'PORTADA',entry:{duration:10000},begin:performance.now(),end:async()=>{if(cinematic?.ending)return;cinematic.ending=true;await fadeTo(1);cinematic=null;resolve();}};fadeTo(0);});}
   if(key!=='WMS.FLI')await fadeTo(0);
 }
 const game=new Adventure.Game(data,{text:showText,conversation:talk,inventory,notice,room:room=>{
  image(room.image);image('assets/mask-'+room.id+'.webp');$('location').textContent=(labels[room.id]||room.art)+(room.hd?' · HD':' · Arte original');$('scene-select').value=String(room.id);
 },media:playMedia,fade:()=>{},ending:showEnding});
 const sceneBack=document.createElement('button');sceneBack.id='scene-back';sceneBack.textContent='← Volver a Marica’s';sceneBack.hidden=true;dialogueRail.append(sceneBack);sceneBack.onclick=async()=>{if(game.busy||cinematic||game.state.room!==15)return;await game.enter(14,69,160);};
+const deathBar=document.createElement('div');deathBar.id='death-bar';deathBar.hidden=true;deathBar.innerHTML='<p>Menchu: Bueno… esta vez lo haré de otra manera.</p><button id="retry">Volver a intentarlo</button><button id="death-load">Cargar partida</button><button id="death-restart">Comenzar de nuevo</button>';dialogueRail.append(deathBar);
+$('retry').onclick=async()=>{if(await game.retry())notice('De vuelta al momento anterior.');};
+$('death-load').onclick=()=>{$('load').onclick();};$('death-restart').onclick=()=>{$('restart').onclick();};
 // Exposed for deterministic local validation and saved-game diagnostics.
 window.game=game;
 for(const [id,room] of Object.entries(data.rooms)){const option=document.createElement('option');option.value=id;option.textContent=`${id} · ${labels[id]||room.art}${room.hd?' · HD':''}`;$('scene-select').append(option);}
 function render(now){
  document.body.classList.toggle('cinema-active',!!cinematic);
+ deathBar.hidden=!game.isGameOver()||!!cinematic||!started;$('retry').disabled=!game.retryState;
  const dt=Math.min(.1,(now-last)/1000);last=now;const walking=started&&game.step(dt);if(walking)frameClock+=dt;
  updateCursor(now);
  ctx.fillStyle='#121710';ctx.fillRect(0,0,1600,1000);
@@ -74,8 +79,8 @@ function render(now){
   const graphics=Object.values(game.state.graphics).filter(g=>g.room===game.state.room&&g.flag>0);
   const drawGraphic=g=>paint(g.image,g.x*5,g.y*5,g.w*5,g.h*5);
   graphics.filter(g=>g.flag===1).forEach(drawGraphic);
-  if(game.state.visible){const set=data.animations[game.state.animation]||data.animations['hombre.sca'];const sequence=set[game.state.direction]?.length?set[game.state.direction]:set[4];const idle=data.idleFrames?.[game.state.animation]?.[Math.min(3,game.state.direction)];const sprite=!walking&&idle?idle:sequence?.[Math.floor(frameClock/.16)%sequence.length];
-   if(sprite)paint(sprite.image,game.state.x*5-sprite.w*2.5,game.state.y*5-sprite.h*5,sprite.w*5,sprite.h*5);
+  if(game.state.visible){const set=data.animations[game.state.animation]||data.animations['hombre.sca'];const sequence=set[game.state.direction]?.length?set[game.state.direction]:set[4];const idle=data.idleFrames?.[game.state.animation]?.[Math.min(3,game.state.direction)];const sprite=!walking&&idle?idle:sequence?.[Math.floor((game.travelled||0)/24*sequence.length)%sequence.length];
+   if(sprite)paint(sprite.image,game.state.x*5-(sprite.anchorX??sprite.w/2)*5,game.state.y*5-(sprite.anchorY??sprite.h)*5,sprite.w*5,sprite.h*5);
   }
   graphics.filter(g=>g.flag===2).forEach(drawGraphic);
   if(showMask)paint('assets/mask-'+game.state.room+'.webp',0,0,1600,1000);

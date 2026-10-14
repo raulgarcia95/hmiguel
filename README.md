@@ -16,7 +16,9 @@ El juego llena la ventana sin deformar sus escenarios. **Pantalla completa** ocu
 
 El tramo final perdido se ha reconstruido con autorización del autor de esta adaptación: el detector recupera un ratón de cuerda en la arena; la tienda de recuerdos vende tinta invisible; la llave y el ratón resuelven la compuerta de Dragon Khan y enlazan con la historia de FINAL.FLI. Las escenas 24 y 36, sus objetos y este enlace son reconstrucciones, no guiones originales recuperados.
 
-Las pruebas conservan el inventario obtenido a través de conversaciones y puzles hasta el final, verifican los requisitos del desenlace, el guardado intermedio y 105 rutas de las máscaras. Las pruebas de movimiento y puzles son independientes: no equivalen a una partida manual completa. Las animaciones HD usan fotogramas clave y capas, y no reproducen cada gesto del FLI de forma idéntica. Queda pendiente una revisión visual manual de la versión publicada.
+Una prueba automatizada recorre la partida desde el inicio hasta el final caminando por las máscaras reales, sin conceder objetos ni saltar habitaciones, incluyendo los diálogos y el guardado intermedio. Se verifican además 105 rutas, el reintento tras una muerte y la marcha a 30, 60 y 120 Hz. Esto no equivale a una partida manual en el navegador. Las animaciones HD usan fotogramas clave y capas, y no reproducen cada gesto del FLI de forma idéntica. Queda pendiente una revisión visual manual de la versión publicada.
+
+Los ciclos de marcha tienen 24 poses alineadas por la pelvis y los pies; la fase depende de la distancia recorrida. El policía del final desciende por la cuerda con cuatro poses dibujadas. Tres conversaciones reconstruidas enlazan pistas de la tienda de recuerdos, la tienda de música y la tienda de deportes. Tras una muerte puedes volver a intentarlo desde antes de la última acción.
 
 ## Desarrollo
 

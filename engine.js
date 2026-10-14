@@ -54,34 +54,45 @@
     reset() { this.state = { version: 1, room: 1, x: 40, y: 180, variables: Array(256).fill(0), inventory: [], selected: 0, objects: clone(this.data.objects), graphics: clone(this.data.graphics), animation: 'hombre.sca', visible: true, direction: 3 }; this.path = []; this.busy = false; this.epoch = (this.epoch || 0) + 1; this.warned = new Set(); }
     warn(text) { if (!this.warned.has(text)) { this.warned.add(text); this.hooks.notice?.(text); } }
     room() { return this.data.rooms[this.state.room]; }
+    isGameOver() { return (this.data.deathRooms||[]).includes(this.state.room); }
+    checkpoint() { if(!this.isGameOver()&&!this.state.completed)this.retryState=this.serialize(); }
+    async retry() { if(!this.retryState||this.busy)return false;await this.restore(this.retryState);return true; }
     pixel() { const x = Math.max(0, Math.min(319, Math.round(this.state.x))), y = Math.max(0, Math.min(199, Math.round(this.state.y))); return this.masks[this.state.room][y * W + x]; }
     async enter(id, x, y, run = true) {
       if (!this.data.rooms[id]) { this.warn(`La escena ${id} no existe en los archivos originales.`); return false; }
-      this.epoch++; this.path = []; this.state.room = id;
+      this.epoch++; this.path = []; this.travelled = 0; this.state.room = id;
       const p = nearest(this.masks[id], x, y) || { x: Math.max(0, Math.min(319,x)), y: Math.max(0,Math.min(199,y)) };
       this.state.x = p.x; this.state.y = p.y; this.hooks.room?.(this.room());
       if (run) await this.execute(this.room().commands, null, this.epoch); return true;
     }
-    async start() { this.reset(); this.hooks.ending?.(false); await this.enter(this.data.initial.room, this.data.initial.x, this.data.initial.y); }
+    async start() { this.reset(); this.retryState=null; this.hooks.ending?.(false); await this.enter(this.data.initial.room, this.data.initial.x, this.data.initial.y); }
     hotspot(x, y) { return Object.values(this.state.objects).filter(o => o.room === this.state.room && !this.state.inventory.includes(o.id) && x >= o.x && x < o.x + o.w && y >= o.y && y < o.y + o.h).sort((a,b) => a.w*a.h-b.w*b.h)[0]; }
-    move(x, y) { if (this.busy || this.state.completed || !this.state.visible) return; this.path = findPath(this.masks[this.state.room], this.state, { x, y }).slice(1); }
+    move(x, y) { if (this.busy || this.isGameOver() || this.state.completed || !this.state.visible) return; this.checkpoint(); this.path = findPath(this.masks[this.state.room], this.state, { x, y }).slice(1); }
     step(seconds) {
       if (this.busy || !this.path.length) return false;
+      const previousX=this.state.x,previousY=this.state.y;
       let remaining = Math.min(seconds,.1) * (/mapa|coche|agua/.test(this.state.animation) ? 32 : 36);
       const initialRegion=this.pixel();
       while (remaining > 0 && this.path.length) {
         const p = this.path[0], dx = p.x-this.state.x, dy = p.y-this.state.y, dist = Math.hypot(dx,dy);
-        this.state.direction = Math.abs(dx)>Math.abs(dy) ? (dx>0?0:1) : (dy>0?3:2);
+        if(dist<.001){this.path.shift();continue;}
+        const horizontal=dx>0?0:1,vertical=dy>0?3:2;
+        // Keep facing near a diagonal instead of flickering at each path corner.
+        if(Math.abs(dx)>Math.abs(dy)*1.2)this.state.direction=horizontal;
+        else if(Math.abs(dy)>Math.abs(dx)*1.2)this.state.direction=vertical;
+        else if(this.state.direction!==horizontal&&this.state.direction!==vertical)this.state.direction=horizontal;
         const advance=Math.min(remaining,.5);
         if (dist <= advance) { this.state.x=p.x; this.state.y=p.y; this.path.shift(); remaining-=dist; }
         else { this.state.x+=dx/dist*advance; this.state.y+=dy/dist*advance; remaining-=advance; }
         // Stop at the first mask region change so even one-pixel exits fire before moving again.
         if(this.pixel()!==initialRegion)break;
       }
-      return true;
+      const moved=Math.hypot(this.state.x-previousX,this.state.y-previousY);
+      this.travelled=(this.travelled||0)+moved;
+      return moved>0;
     }
-    async tick() { if (this.busy || this.state.completed) return; this.busy=true; try { await this.execute(this.room().commands,null,this.epoch); } finally { this.busy=false; } }
-    async interact(target, used = this.state.selected) { if (this.busy || this.state.completed) return; this.path=[]; this.busy=true; this.matched=false; try {
+    async tick() { if (this.busy || this.isGameOver() || this.state.completed) return; this.busy=true; try { await this.execute(this.room().commands,null,this.epoch); } finally { this.busy=false; } }
+    async interact(target, used = this.state.selected) { if (this.busy || this.isGameOver() || this.state.completed) return; this.checkpoint();this.path=[]; this.busy=true; this.matched=false; try {
       if(used===4&&target===2&&this.state.inventory.includes(2)&&this.state.room!==2){this.state.documentReturn={room:this.state.room,x:this.state.x,y:this.state.y,visible:this.state.visible,animation:this.state.animation};await this.enter(2,41,158);this.matched=true;}
       else await this.execute(this.room().commands,{target,used},this.epoch);
       if(!this.matched&&used===4&&this.state.inventory.includes(target)){this.matched=true;await this.hooks.text?.(this.state.objects[target]?.name||'No veo nada especial.');}

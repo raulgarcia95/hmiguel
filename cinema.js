@@ -3,16 +3,20 @@
  'use strict';
  const cache=new Map(),root='assets/cinema/';
  const names=['tv','watch','face','changing','entrance','beer','meeting','street','fallen','globe'];
- function get(name){const src=root+'intro-'+name+'.webp';if(!cache.has(src)){const im=new Image();im.src=src+'?v=20261013-5';cache.set(src,im);}return cache.get(src);}
- get('final-letter');names.forEach(get);for(let i=0;i<6;i++)get('program-'+i);for(let i=0;i<4;i++){get('actor-'+i);get('final-'+i);}
+ function get(name){const src=root+'intro-'+name+'.webp';if(!cache.has(src)){const im=new Image();im.src=src+'?v=20261014-2';cache.set(src,im);}return cache.get(src);}
+ ['final-letter','rope-wall','rope','final-sofa'].forEach(get);names.forEach(get);for(let i=0;i<6;i++)get('program-'+i);for(let i=0;i<4;i++){get('actor-'+i);get('final-'+i);get('police-'+i);}
  for(const name of ['calippo','guacamo','lavabo'])for(let i=0;i<4;i++)get(name+'-'+i);
  ['juke','bomba','sarria'].forEach(get);
  for(const [name,count] of [['saludo',6],['encuentro',6],['cerveza',4],['cejas',4],['pisada',4],['underwear',4],['tvframe',75]])for(let i=0;i<count;i++)get(name+'-'+i);
+ window.prepareRemasteredCinema=async key=>{
+  const needed=[...cache.entries()].filter(([src])=>key==='WMS.FLI'?src.includes('globe'):key==='FINAL.FLI'?/final-|police-|rope|face|changing/.test(src):key==='PRESENT.FLI'?!/final-|police-|rope|calippo|guacamo|lavabo|juke|bomba|sarria|globe/.test(src):src.includes(key.replace('.FLI','').toLowerCase()));
+  await Promise.all(needed.map(([,im])=>im.decode?im.decode().catch(()=>{}):Promise.resolve()));
+ };
  function draw(ctx,name,x=0,y=0,w=1600,h=1000){const im=get(name);if(im.complete&&im.naturalWidth)ctx.drawImage(im,x,y,w,h);}
  function caption(text){let p=document.getElementById('cinema-caption');if(!p){p=document.createElement('p');p.id='cinema-caption';document.getElementById('dialogue-rail')?.append(p);}p.textContent=text;p.hidden=!text;}
  window.clearCinemaCaption=()=>caption('');
  function smoke(ctx,x,y,t,scale=1){ctx.save();ctx.strokeStyle='rgba(230,236,242,.22)';ctx.lineWidth=3*scale;for(let n=0;n<3;n++){ctx.beginPath();for(let i=0;i<80;i++){const yy=y-i*scale*3,xx=x+Math.sin(i/13+t*1.4+n)*12*scale+i*.3; i?ctx.lineTo(xx,yy):ctx.moveTo(xx,yy);}ctx.stroke();}ctx.restore();}
- function actor(ctx,paint,x,y,t,dir=0,size=1){const seq=window.GAME_DATA.animations['hombre.sca'][dir],s=seq[Math.floor(t*6)%seq.length];paint(s.image,x-s.w*2.5*size,y-s.h*5*size,s.w*5*size,s.h*5*size);}
+ function actor(ctx,paint,x,y,t,dir=0,size=1){const seq=window.GAME_DATA.animations['hombre.sca'][dir],s=t===0?(window.GAME_DATA.idleFrames?.['hombre.sca']?.[dir]||seq[0]):seq[Math.floor(t*seq.length/0.7)%seq.length];paint(s.image,x-(s.anchorX??s.w/2)*5*size,y-(s.anchorY??s.h)*5*size,s.w*5*size,s.h*5*size);}
  function storyActor(ctx,cell,x,y,w,h){const im=get('actor-'+cell);if(im.complete&&im.naturalWidth){const k=Math.min(w/im.naturalWidth,h/im.naturalHeight);ctx.drawImage(im,x+(w-im.naturalWidth*k)/2,y+h-im.naturalHeight*k,im.naturalWidth*k,im.naturalHeight*k);}}
  window.drawRemasteredCinema=function(ctx,key,elapsed,paint,entry){
   const t=elapsed/1000;
@@ -34,9 +38,19 @@
    }else if(f<93){draw(ctx,'face');if(f<83){ctx.globalCompositeOperation='color';ctx.fillStyle='#36a54666';ctx.fillRect(420,280,700,720);ctx.globalCompositeOperation='source-over';}text=f<83?'Menchu: ¡Me cago en…!':'Menchu: Bueno, da igual…';}
    else if(f<127){
     draw(ctx,'final-2');
-    // Hide the rope until its original entrance, then reveal it from above.
-    const reveal=f<108?0:Math.min(1,(f-108)/9);ctx.fillStyle='#817aed';ctx.fillRect(1430,Math.round(reveal*620),100,Math.max(0,630-reveal*620));
-    if(f>=118){const y=-220+(f-118)*100;ctx.fillStyle='#44454c';ctx.strokeStyle='#292930';ctx.lineWidth=14;ctx.beginPath();ctx.roundRect(1420,y,80,160,20);ctx.fill();ctx.stroke();ctx.fillRect(1424,y+140,26,145);ctx.fillRect(1460,y+140,26,145);ctx.fillStyle='#202128';ctx.fillRect(1405,y+270,47,25);ctx.fillRect(1460,y+270,47,25);}
+    const position=elapsed/entry.frameDuration;
+    draw(ctx,'rope-wall',1430,0,105,640);
+    const reveal=Math.max(0,Math.min(1,(position-108)/9));
+    if(reveal){ctx.save();ctx.beginPath();ctx.rect(1400,0,160,645*reveal);ctx.clip();draw(ctx,'rope',1420,0,115,645);ctx.restore();}
+    if(position>=118){
+     const phase=position<124?Math.floor(position*2)%2:position<125.5?2:3;
+     const im=get('police-'+phase),height=phase===2?430:500,width=height*im.naturalWidth/im.naturalHeight;
+     const grip=[.453,.490,.368,.546][phase],progress=Math.min(1,(position-118)/6);
+     const top=phase>=2?795-height:-500+progress*795;
+     draw(ctx,'police-'+phase,1480-width*grip,top,width,height);
+     // The foreground sofa hides the descending policeman's feet correctly.
+     draw(ctx,'final-sofa');
+    }
    }else if(f<154){draw(ctx,'final-3');text=f<136?'Policía: ¡Alto! Queda detenido por el asesinato de Miguel Escoria. ¡15 AÑOS!':f<145?'Menchu: ¡Ah! Qué susto, creía que era por descarrilar el Dragon Khan.':'Policía: ¡Con que fuiste tú, eh! CADENA PERPETUA.';}
    else{draw(ctx,'face');text='Menchu: ¡NOOOOOOOO! ¡BOCAZAS!';ctx.fillStyle='#fff075';ctx.font='bold 120px Georgia';ctx.textAlign='center';ctx.fillText('FIN',f%4<2?180:1400,850);}
    ctx.restore();caption(text);return true;

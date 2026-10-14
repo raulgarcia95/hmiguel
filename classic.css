@@ -24,3 +24,4 @@ body:has(#welcome:not([hidden])) #stage{width:min(100vw,160dvh);margin:0}
 #welcome .primary{margin:0;min-width:160px;font-size:20px}
 
 #ending{position:absolute;inset:0;z-index:30;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#10120feb;text-align:center}#ending h2{font:700 clamp(60px,12vw,150px) Georgia;margin:0;color:#e5c46c}#ending p{font:clamp(20px,3vw,35px) Georgia;margin:20px}#ending button{font-size:20px}
+#death-bar{position:absolute;bottom:5%;left:5%;right:5%;text-align:center;padding:15px;background:#0009;pointer-events:auto;font:700 clamp(16px,2.2vw,28px) Arial;color:#fff4ad}#death-bar p{margin:0 0 14px}#death-bar button{margin:4px;font-size:16px}
