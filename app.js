@@ -8,7 +8,17 @@ const cinemaBar=document.createElement('div');cinemaBar.id='cinema-bar';cinemaBa
 const cinemaSeek=document.createElement('input');cinemaSeek.type='range';cinemaSeek.min='0';cinemaSeek.max='1000';cinemaSeek.value='0';cinemaSeek.setAttribute('aria-label','Avance de la secuencia');cinemaBar.insertBefore(cinemaSeek,$('skip-cinema'));cinemaSeek.oninput=()=>{if(cinematic)cinematic.begin=(cinematic.pausedAt??performance.now())-Number(cinemaSeek.value)/1000*cinematic.entry.duration;};
 const pauseCinema=document.createElement('button');pauseCinema.textContent='Pausar';cinemaBar.insertBefore(pauseCinema,$('skip-cinema'));pauseCinema.onclick=()=>{if(!cinematic)return;if(cinematic.pausedAt!==undefined){cinematic.begin+=performance.now()-cinematic.pausedAt;delete cinematic.pausedAt;pauseCinema.textContent='Pausar';}else{cinematic.pausedAt=performance.now();pauseCinema.textContent='Reanudar';}};
 const images=new Map();let started=false,conversation=null,textFinish=null,last=performance.now(),lastTick=0,lastRegion=-1,showMask=false,showHotspots=false,frameClock=0;
-function image(src){if(!images.has(src)){const im=new Image();im.src=src+(src.includes('?')?'&':'?')+'v=20261014-3';images.set(src,im);}return images.get(src);}
+let lastHeroSprite=null,lastHeroAnimation='';
+function heroSprite(sequence,idle,moving){
+ const desired=!moving&&idle?idle:sequence?.[Math.floor((game.travelled||0)/24*sequence.length)%sequence.length];
+ const ready=s=>{if(!s)return false;const im=image(s.image);return im.complete&&im.naturalWidth>0;};
+ if(lastHeroAnimation!==game.state.animation){lastHeroAnimation=game.state.animation;lastHeroSprite=null;}
+ const sprite=ready(desired)?desired:ready(lastHeroSprite)?lastHeroSprite:ready(idle)?idle:sequence?.find(ready);
+ if(sprite)lastHeroSprite=sprite;
+ return sprite;
+}
+function hideEntryForIntro(){fadeLayer.style.opacity='1';document.body.classList.toggle('cinema-active',true);$('welcome').hidden=true;}
+function image(src){if(!images.has(src)){const im=new Image();im.src=src+(src.includes('?')?'&':'?')+'v=20261014-4';images.set(src,im);}return images.get(src);}
 function paint(src,x,y,w,h){const im=image(src);if(im.complete&&im.naturalWidth)ctx.drawImage(im,x,y,w,h);}
 function notice(text){$('notice').textContent=text;}
 const labels={1:'Marica’s · La carta',2:'La primera prueba',3:'Sabadell',4:'Ferretería',5:'El poste',6:'La caja de cables',7:'Fin de partida',8:'Mapa de Cataluña',9:'Entrada a Port Aventura',10:'Port Aventura',11:'La entrada',12:'Fin de partida',13:'Los grandes almacenes',14:'Dentro de Marica’s',15:'La máquina de discos',16:'Fin de partida',17:'La ciudad',18:'La playa',19:'Pamela en la playa',20:'Fin de partida',21:'El restaurante',22:'La orilla',23:'El lavabo',25:'Fin de partida',26:'La taquilla',27:'La tienda de música',28:'La tienda de deportes',30:'El Prat',31:'Tarragona',32:'Fin de partida',33:'Fin de partida',34:'El bar',35:'Barcelona'};
@@ -66,20 +76,21 @@ $('death-load').onclick=()=>{$('load').onclick();};$('death-restart').onclick=()
 window.game=game;
 for(const [id,room] of Object.entries(data.rooms)){const option=document.createElement('option');option.value=id;option.textContent=`${id} · ${labels[id]||room.art}${room.hd?' · HD':''}`;$('scene-select').append(option);}
 function render(now){
- document.body.classList.toggle('cinema-active',!!cinematic);
+ document.body.classList.toggle('cinema-active',!!cinematic||(!started&&$('welcome').hidden));
  deathBar.hidden=!game.isGameOver()||!!cinematic||!started;$('retry').disabled=!game.retryState;
  const dt=Math.min(.1,(now-last)/1000);last=now;const walking=started&&game.step(dt);if(walking)frameClock+=dt;
  updateCursor(now);
- ctx.fillStyle='#121710';ctx.fillRect(0,0,1600,1000);
+ ctx.fillStyle='#000';ctx.fillRect(0,0,1600,1000);
  sceneBack.hidden=game.state.room!==15||!!cinematic;
  if(cinematic?.key==='PORTADA'){const im=image('assets/portada.webp');if(im.naturalWidth){const scale=Math.min(1600/im.naturalWidth,1000/im.naturalHeight);ctx.drawImage(im,(1600-im.naturalWidth*scale)/2,(1000-im.naturalHeight*scale)/2,im.naturalWidth*scale,im.naturalHeight*scale);}if(now-cinematic.begin>=10000)cinematic.end();requestAnimationFrame(render);return;}
  if(cinematic){const elapsed=(cinematic.pausedAt??now)-cinematic.begin;cinemaSeek.value=String(Math.round(elapsed/cinematic.entry.duration*1000));if(window.drawRemasteredCinema&&window.drawRemasteredCinema(ctx,cinematic.key,elapsed,paint,cinematic.entry)){}else paint(cinematic.source,0,0,1600,1000);if(elapsed>=cinematic.entry.duration)cinematic.end();requestAnimationFrame(render);return;}
+ if(!started){requestAnimationFrame(render);return;}
  const room=game.room();paint(conversation?conversation.dialog.image:room.image,0,0,1600,1000);
  if(!conversation){
   const graphics=Object.values(game.state.graphics).filter(g=>g.room===game.state.room&&g.flag>0);
   const drawGraphic=g=>paint(g.image,g.x*5,g.y*5,g.w*5,g.h*5);
   graphics.filter(g=>g.flag===1).forEach(drawGraphic);
-  if(game.state.visible){const set=data.animations[game.state.animation]||data.animations['hombre.sca'];const sequence=set[game.state.direction]?.length?set[game.state.direction]:set[4];const idle=data.idleFrames?.[game.state.animation]?.[Math.min(3,game.state.direction)];const sprite=!walking&&idle?idle:sequence?.[Math.floor((game.travelled||0)/24*sequence.length)%sequence.length];
+  if(game.state.visible){const set=data.animations[game.state.animation]||data.animations['hombre.sca'];const sequence=set[game.state.direction]?.length?set[game.state.direction]:set[4];const idle=data.idleFrames?.[game.state.animation]?.[Math.min(3,game.state.direction)];const sprite=heroSprite(sequence,idle,walking||game.path.length>0);
    if(sprite)paint(sprite.image,game.state.x*5-(sprite.anchorX??sprite.w/2)*5,game.state.y*5-(sprite.anchorY??sprite.h)*5,sprite.w*5,sprite.h*5);
   }
   graphics.filter(g=>g.flag===2).forEach(drawGraphic);
@@ -94,7 +105,7 @@ canvas.addEventListener('pointermove',event=>{pointerPosition=point(event);if(!s
 canvas.addEventListener('pointerleave',()=>{pointerPosition=null;$('hover').style.display='none';});
 canvas.addEventListener('click',event=>{if(!started||game.busy||conversation)return;const p=point(event),o=game.hotspot(p.x,p.y);$('hover').style.display='none';if(o)game.interact(o.id).catch(console.error);else game.move(p.x,p.y);});
 canvas.addEventListener('contextmenu',event=>{event.preventDefault();select(game.state.selected?0:4);});
-$('start').onclick=async()=>{started=false;$('welcome').hidden=true;await game.start();started=true;inventory();notice('Haz clic para explorar. La carta está junto a Miguel.');canvas.focus();};
+$('start').onclick=async()=>{started=false;hideEntryForIntro();await game.start();started=true;inventory();notice('Haz clic para explorar. La carta está junto a Miguel.');canvas.focus();};
 $('hand').onclick=()=>select(0);$('look').onclick=()=>select(4);
 $('save').onclick=()=>{if(!started||game.busy)return notice('Espera a terminar la acción antes de guardar.');try{localStorage.setItem('miguel-hd-save-v1',game.serialize());notice('Partida guardada en este navegador.');}catch{notice('El navegador no permite guardar la partida.');}};
 $('load').onclick=async()=>{if(game.busy||cinematic)return;try{const saved=localStorage.getItem('miguel-hd-save-v1');if(!saved)return notice('Todavía no hay una partida guardada.');await game.restore(saved);started=true;$('welcome').hidden=true;notice('Partida recuperada.');}catch{notice('No se pudo cargar la partida.');}};
@@ -102,7 +113,7 @@ $('fullscreen').onclick=()=>{const promise=document.fullscreenElement?document.e
 $('options').onclick=()=>{$('settings').hidden=!$('settings').hidden;$('options').setAttribute('aria-expanded',String(!$('settings').hidden));};
 $('mask-toggle').onchange=e=>showMask=e.target.checked;$('hotspots-toggle').onchange=e=>showHotspots=e.target.checked;
 $('visit').onclick=async()=>{if(game.busy||cinematic)return;started=false;$('welcome').hidden=true;await game.enter(Number($('scene-select').value),160,180);started=true;notice('Escena de prueba abierta.');};
-$('restart').onclick=async()=>{if(game.busy||cinematic)return;started=false;$('welcome').hidden=true;await game.start();started=true;inventory();notice('Nueva partida iniciada. El guardado anterior se conserva.');};
+$('restart').onclick=async()=>{if(game.busy||cinematic)return;started=false;hideEntryForIntro();await game.start();started=true;inventory();notice('Nueva partida iniciada. El guardado anterior se conserva.');};
 const replay=document.createElement('button');replay.textContent='Ver introducción';replay.onclick=async()=>{if(game.busy||cinematic)return;const wasStarted=started,previousMusic=musicFile;started=false;$('welcome').hidden=true;await playMedia('music','CREATION.MOD');await playMedia('animation','WMS.FLI');await playMedia('animation','PRESENT.FLI');if(previousMusic)await playMedia('music',previousMusic);started=wasStarted;if(!wasStarted)$('welcome').hidden=false;};$('settings').append(replay);
 const cinemaLabel=document.createElement('label');cinemaLabel.textContent='Revisar una secuencia ';const cinemaSelect=document.createElement('select');
 for(const [key,title] of Object.entries({'WMS.FLI':'Logotipo inicial','PRESENT.FLI':'Introducción','CALIPPO.FLI':'El helado','GUACAMO.FLI':'La bebida','JUKE.FLI':'La máquina de discos','LAVABO.FLI':'El lavabo','PALIZA.FLI':'La pelea','SARRIA.FLI':'El aviso de Sarrià','BOMBAH.FLI':'La bomba'})){const o=document.createElement('option');o.value=key;o.textContent=title;cinemaSelect.append(o);}
