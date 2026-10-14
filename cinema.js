@@ -3,8 +3,8 @@
  'use strict';
  const cache=new Map(),root='assets/cinema/';
  const names=['tv','watch','face','changing','entrance','beer','meeting','street','fallen','globe'];
- function get(name){const src=root+'intro-'+name+'.webp';if(!cache.has(src)){const im=new Image();im.src=src+'?v=20261014-2';cache.set(src,im);}return cache.get(src);}
- ['final-letter','rope-wall','rope','final-sofa'].forEach(get);names.forEach(get);for(let i=0;i<6;i++)get('program-'+i);for(let i=0;i<4;i++){get('actor-'+i);get('final-'+i);get('police-'+i);}
+ function get(name){const src=root+'intro-'+name+'.webp';if(!cache.has(src)){const im=new Image();im.src=src+'?v=20261014-3';cache.set(src,im);}return cache.get(src);}
+ ['final-letter','rope-wall','rope','final-sofa','final-angry','final-shout'].forEach(get);names.forEach(get);for(let i=0;i<6;i++)get('program-'+i);for(let i=0;i<4;i++){get('actor-'+i);get('final-'+i);get('police-'+i);}
  for(const name of ['calippo','guacamo','lavabo'])for(let i=0;i<4;i++)get(name+'-'+i);
  ['juke','bomba','sarria'].forEach(get);
  for(const [name,count] of [['saludo',6],['encuentro',6],['cerveza',4],['cejas',4],['pisada',4],['underwear',4],['tvframe',75]])for(let i=0;i<count;i++)get(name+'-'+i);
@@ -35,7 +35,7 @@
    else if(f<58){draw(ctx,'changing');actor(ctx,paint,130+(f-45)*27,870,t,0,.8);}
    else if(f<74){
     draw(ctx,'final-letter');
-   }else if(f<93){draw(ctx,'face');if(f<83){ctx.globalCompositeOperation='color';ctx.fillStyle='#36a54666';ctx.fillRect(420,280,700,720);ctx.globalCompositeOperation='source-over';}text=f<83?'Menchu: ¡Me cago en…!':'Menchu: Bueno, da igual…';}
+   }else if(f<93){draw(ctx,f<83?'final-angry':'face');text=f<83?'Menchu: ¡Me cago en…!':'Menchu: Bueno, da igual…';}
    else if(f<127){
     draw(ctx,'final-2');
     const position=elapsed/entry.frameDuration;
@@ -52,7 +52,7 @@
      draw(ctx,'final-sofa');
     }
    }else if(f<154){draw(ctx,'final-3');text=f<136?'Policía: ¡Alto! Queda detenido por el asesinato de Miguel Escoria. ¡15 AÑOS!':f<145?'Menchu: ¡Ah! Qué susto, creía que era por descarrilar el Dragon Khan.':'Policía: ¡Con que fuiste tú, eh! CADENA PERPETUA.';}
-   else{draw(ctx,'face');text='Menchu: ¡NOOOOOOOO! ¡BOCAZAS!';ctx.fillStyle='#fff075';ctx.font='bold 120px Georgia';ctx.textAlign='center';ctx.fillText('FIN',f%4<2?180:1400,850);}
+   else{draw(ctx,'final-shout');text='Menchu: ¡NOOOOOOOO! ¡BOCAZAS!';ctx.fillStyle='#fff075';ctx.font='bold 120px Georgia';ctx.textAlign='center';ctx.fillText('FIN',f%4<2?180:1400,850);}
    ctx.restore();caption(text);return true;
   }
   if(['CALIPPO.FLI','GUACAMO.FLI','LAVABO.FLI'].includes(key)){
