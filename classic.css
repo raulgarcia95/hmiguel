@@ -15,3 +15,12 @@ footer{position:fixed;bottom:69px;left:12px;right:12px;padding:0;pointer-events:
 #scene-back{position:absolute;bottom:3%;left:3%;color:#fff;background:#171717bb;font-size:18px}#fade-layer{position:absolute;inset:0;background:#000;opacity:0;pointer-events:none;z-index:40}
 #settings{position:fixed;inset:65px 6% 85px;z-index:60;margin:0;overflow:auto;background:#1b1b19f7;border:1px solid #8c805b;padding:24px}#hover{background:transparent;border:0;font-size:17px;color:#fff4ad;text-shadow:1px 1px 2px #000,-1px -1px 2px #000;z-index:14}#welcome{z-index:18}#welcome h2{font-size:clamp(30px,5vw,65px)}
 @media(max-width:650px){header{top:4px;right:4px}header button{font-size:10px;padding:4px 6px}.inventory-bar{padding:4px;gap:4px}.inventory-bar>button{font-size:12px;padding:7px}#inventory button{font-size:10px}#cinema-title{display:none}#dialogue-rail #choices{gap:3px;bottom:9%;padding:4px}#dialogue-rail #choices button{font-size:14px}#dialogue-rail #speech,#dialogue-rail #subtitle{font-size:20px}#cinema-caption{font-size:22px}#settings{inset:40px 3% 75px}}
+
+/* The entry screen contains only the title and start action. */
+body:has(#welcome:not([hidden])) header,body:has(#welcome:not([hidden])) .inventory-bar,body:has(#welcome:not([hidden])) footer{display:none}
+body:has(#welcome:not([hidden])) #stage{width:min(100vw,160dvh);margin:0}
+#welcome{background:#10120feb;align-items:center;text-align:center;padding:8%;gap:22px}
+#welcome h2{max-width:900px;font:clamp(32px,6vw,76px)/1.12 Georgia,serif;margin:0;color:#f2e7ce}
+#welcome .primary{margin:0;min-width:160px;font-size:20px}
+
+#ending{position:absolute;inset:0;z-index:30;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#10120feb;text-align:center}#ending h2{font:700 clamp(60px,12vw,150px) Georgia;margin:0;color:#e5c46c}#ending p{font:clamp(20px,3vw,35px) Georgia;margin:20px}#ending button{font-size:20px}

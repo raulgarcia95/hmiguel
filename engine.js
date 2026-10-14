@@ -62,9 +62,9 @@
       this.state.x = p.x; this.state.y = p.y; this.hooks.room?.(this.room());
       if (run) await this.execute(this.room().commands, null, this.epoch); return true;
     }
-    async start() { this.reset(); await this.enter(this.data.initial.room, this.data.initial.x, this.data.initial.y); }
+    async start() { this.reset(); this.hooks.ending?.(false); await this.enter(this.data.initial.room, this.data.initial.x, this.data.initial.y); }
     hotspot(x, y) { return Object.values(this.state.objects).filter(o => o.room === this.state.room && !this.state.inventory.includes(o.id) && x >= o.x && x < o.x + o.w && y >= o.y && y < o.y + o.h).sort((a,b) => a.w*a.h-b.w*b.h)[0]; }
-    move(x, y) { if (this.busy || !this.state.visible) return; this.path = findPath(this.masks[this.state.room], this.state, { x, y }).slice(1); }
+    move(x, y) { if (this.busy || this.state.completed || !this.state.visible) return; this.path = findPath(this.masks[this.state.room], this.state, { x, y }).slice(1); }
     step(seconds) {
       if (this.busy || !this.path.length) return false;
       let remaining = Math.min(seconds,.1) * (/mapa|coche|agua/.test(this.state.animation) ? 32 : 36);
@@ -80,8 +80,13 @@
       }
       return true;
     }
-    async tick() { if (this.busy) return; this.busy=true; try { await this.execute(this.room().commands,null,this.epoch); } finally { this.busy=false; } }
-    async interact(target, used = this.state.selected) { if (this.busy) return; this.path=[]; this.busy=true; this.matched=false; try { await this.execute(this.room().commands,{target,used},this.epoch); if (!this.matched) this.hooks.notice?.('No ocurre nada.'); } finally { this.busy=false; this.hooks.inventory?.(); } }
+    async tick() { if (this.busy || this.state.completed) return; this.busy=true; try { await this.execute(this.room().commands,null,this.epoch); } finally { this.busy=false; } }
+    async interact(target, used = this.state.selected) { if (this.busy || this.state.completed) return; this.path=[]; this.busy=true; this.matched=false; try {
+      if(used===4&&target===2&&this.state.inventory.includes(2)&&this.state.room!==2){this.state.documentReturn={room:this.state.room,x:this.state.x,y:this.state.y,visible:this.state.visible,animation:this.state.animation};await this.enter(2,41,158);this.matched=true;}
+      else await this.execute(this.room().commands,{target,used},this.epoch);
+      if(!this.matched&&used===4&&this.state.inventory.includes(target)){this.matched=true;await this.hooks.text?.(this.state.objects[target]?.name||'No veo nada especial.');}
+      if (!this.matched) this.hooks.notice?.('No ocurre nada.');
+    } finally { this.busy=false; this.hooks.inventory?.(); } }
     condition(node,event) {
       const [a,b]=node.args,s=this.state,v=s.variables;
       switch(node.op) {
@@ -104,11 +109,12 @@
           case 'GF':if(s.graphics[a])s.graphics[a].flag=b;break;case 'GP':if(s.graphics[a])Object.assign(s.graphics[a],{x:b,y:c});break;
           case 'CP':s.visible=!!a;break;case 'CA':s.animation=a.toLowerCase();break;case 'CE':if(a<4)s.direction=a;break;
           case 'CM':this.path=findPath(this.masks[s.room],s,{x:a,y:b}).slice(1);break;
-          case 'MI': if(this.data.rooms[a]) {await this.enter(a,b,c,false);await this.execute(this.room().commands,null,this.epoch,depth+1);return;} this.warn(`La escena ${a} no existe en los archivos originales.`);break;
+          case 'MI': if(s.room===2&&a===1&&s.documentReturn){const back=s.documentReturn;delete s.documentReturn;await this.enter(back.room,back.x,back.y,false);s.visible=back.visible;s.animation=back.animation;return;}if(this.data.rooms[a]) {await this.enter(a,b,c,false);await this.execute(this.room().commands,null,this.epoch,depth+1);return;} this.warn(`La escena ${a} no existe en los archivos originales.`);break;
           case 'MC':await this.hooks.conversation?.(a,b);break;
           case 'CF':this.hooks.fade?.(a);break;
           case 'CC':case 'CR':break;
           case 'MA':await this.hooks.media?.('animation',a);break;
+          case 'END':s.completed=true;s.selected=0;this.path=[];await this.hooks.ending?.(true);return;
           case 'SM':await this.hooks.media?.('music',a);break;
           case 'SS':await this.hooks.media?.('sound',a);break;
           default:this.warn(`Orden pendiente de adaptar: ${node.op}.`);return;
@@ -122,7 +128,7 @@
       s.objects={...clone(this.data.objects),...s.objects};s.graphics={...clone(this.data.graphics),...s.graphics};
       // Geometry is asset data, not progress: keep improved hitboxes in older saves.
       for(const [id,obj] of Object.entries(s.objects))if(this.data.objects[id])for(const key of ['x','y','w','h','icon'])if(this.data.objects[id][key]!==undefined)obj[key]=this.data.objects[id][key];
-      this.state=s;this.path=[];this.epoch++;this.hooks.room?.(this.room());this.hooks.inventory?.();
+      this.state=s;this.path=[];this.epoch++;this.hooks.room?.(this.room());this.hooks.inventory?.();this.hooks.ending?.(!!s.completed);
     }
   }
   global.Adventure={Game,findPath,nearest,lineClear,valid};

@@ -8,7 +8,7 @@ const cinemaBar=document.createElement('div');cinemaBar.id='cinema-bar';cinemaBa
 const cinemaSeek=document.createElement('input');cinemaSeek.type='range';cinemaSeek.min='0';cinemaSeek.max='1000';cinemaSeek.value='0';cinemaSeek.setAttribute('aria-label','Avance de la secuencia');cinemaBar.insertBefore(cinemaSeek,$('skip-cinema'));cinemaSeek.oninput=()=>{if(cinematic)cinematic.begin=(cinematic.pausedAt??performance.now())-Number(cinemaSeek.value)/1000*cinematic.entry.duration;};
 const pauseCinema=document.createElement('button');pauseCinema.textContent='Pausar';cinemaBar.insertBefore(pauseCinema,$('skip-cinema'));pauseCinema.onclick=()=>{if(!cinematic)return;if(cinematic.pausedAt!==undefined){cinematic.begin+=performance.now()-cinematic.pausedAt;delete cinematic.pausedAt;pauseCinema.textContent='Pausar';}else{cinematic.pausedAt=performance.now();pauseCinema.textContent='Reanudar';}};
 const images=new Map();let started=false,conversation=null,textFinish=null,last=performance.now(),lastTick=0,lastRegion=-1,showMask=false,showHotspots=false,frameClock=0;
-function image(src){if(!images.has(src)){const im=new Image();im.src=src+(src.includes('?')?'&':'?')+'v=20261013-5';images.set(src,im);}return images.get(src);}
+function image(src){if(!images.has(src)){const im=new Image();im.src=src+(src.includes('?')?'&':'?')+'v=20261014-1';images.set(src,im);}return images.get(src);}
 function paint(src,x,y,w,h){const im=image(src);if(im.complete&&im.naturalWidth)ctx.drawImage(im,x,y,w,h);}
 function notice(text){$('notice').textContent=text;}
 const labels={1:'Marica’s · La carta',2:'La primera prueba',3:'Sabadell',4:'Ferretería',5:'El poste',6:'La caja de cables',7:'Fin de partida',8:'Mapa de Cataluña',9:'Entrada a Port Aventura',10:'Port Aventura',11:'La entrada',12:'Fin de partida',13:'Los grandes almacenes',14:'Dentro de Marica’s',15:'La máquina de discos',16:'Fin de partida',17:'La ciudad',18:'La playa',19:'Pamela en la playa',20:'Fin de partida',21:'El restaurante',22:'La orilla',23:'El lavabo',25:'Fin de partida',26:'La taquilla',27:'La tienda de música',28:'La tienda de deportes',30:'El Prat',31:'Tarragona',32:'Fin de partida',33:'Fin de partida',34:'El bar',35:'Barcelona'};
@@ -56,7 +56,7 @@ async function playMedia(type,file){
 }
 const game=new Adventure.Game(data,{text:showText,conversation:talk,inventory,notice,room:room=>{
  image(room.image);image('assets/mask-'+room.id+'.webp');$('location').textContent=(labels[room.id]||room.art)+(room.hd?' · HD':' · Arte original');$('scene-select').value=String(room.id);
-},media:playMedia,fade:()=>{}});
+},media:playMedia,fade:()=>{},ending:showEnding});
 const sceneBack=document.createElement('button');sceneBack.id='scene-back';sceneBack.textContent='← Volver a Marica’s';sceneBack.hidden=true;dialogueRail.append(sceneBack);sceneBack.onclick=async()=>{if(game.busy||cinematic||game.state.room!==15)return;await game.enter(14,69,160);};
 // Exposed for deterministic local validation and saved-game diagnostics.
 window.game=game;
@@ -106,3 +106,10 @@ for(const key of ['hombre.sca','poste.sca'])for(const seq of data.animations[key
 for(const frames of Object.values(data.idleFrames||{}))for(const frame of frames)image(frame.image);
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){select(0);$('settings').hidden=true;}if(e.key==='Enter'&&textFinish){e.preventDefault();textFinish();}});
 image('assets/portada.webp');image(game.room().image);$('location').textContent=labels[1]+' · HD';inventory();requestAnimationFrame(render);
+
+function showEnding(completed){
+ let panel=$('ending');
+ if(!panel){panel=document.createElement('div');panel.id='ending';panel.innerHTML='<h2>FIN</h2><p>La herencia del Tío Miguel</p><button id="ending-restart">Volver a jugar</button>'; $('stage').append(panel);$('ending-restart').onclick=()=>{panel.hidden=true;$('restart').onclick();};}
+ panel.hidden=!completed;
+ if(completed)notice('Aventura terminada.');
+}
